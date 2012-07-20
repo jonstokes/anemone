@@ -38,12 +38,18 @@ module Anemone
         end
       end
 
+      def keys
+        keys = []
+        self.each { |k, v| keys << k.to_s }
+        keys
+      end
+
       def merge!(hash)
         hash.each  { |key, value| self[key] = value }
         self
       end
 
-      def has_key?
+      def has_key?(key)
         if self[key].nil?
           return false
         else

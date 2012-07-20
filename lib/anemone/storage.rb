@@ -40,7 +40,7 @@ module Anemone
       self::SQLite3.new(file)
     end
 
-    def self.Hstore(opts = {})
+    def self.Hstore(table)
       require 'anemone/storage/hstore'
       self::Hstore.new(table)
     end
