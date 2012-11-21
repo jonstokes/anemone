@@ -5,26 +5,30 @@ module Anemone
   module Storage
     class Hstore
 
-      def initialize(table)
-        @table = table
+      def initialize(opts)
+        @table = eval opts[:table_name]
+        @key_prefix = opts[:key_prefix]
         @table.delete_all
       end
 
       def [](key)
-        row = @table.where("data ? '#{key.to_s}'")
-        return row.empty? ? nil : row.first.data[key.to_s]
+        key = @key_prefix + key.to_s
+        row = @table.where("data ? '#{key}'")
+        return row.empty? ? nil : row.first.data[key]
       end
 
       def []=(key,value)
-        @table.create(:data => {key.to_s => value})
+        key = @key_prefix + key.to_s
+        @table.create(:data => {key => value})
       end
 
       def delete(key)
-        row = @table.where("data ? '#{key.to_s}'")
+        key = @key_prefix + key.to_s
+        row = @table.where("data ? '#{key}'")
         page = nil
         unless row.empty?
-          page = row.first.data[key.to_s]
-          row.first.data[key.to_s].destroy_key(:data, key)
+          page = row.first.data[key]
+          row.first.data[key].destroy_key(:data, key)
         end
         return page
       end
@@ -50,6 +54,7 @@ module Anemone
       end
 
       def has_key?(key)
+        key = @key_prefix + key.to_s
         if self[key].nil?
           return false
         else
