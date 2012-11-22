@@ -49,7 +49,9 @@ module Anemone
 
       def keys
         keys = []
-        self.each { |k, v| keys << k.to_s }
+        @table.where(:key_prefix => @key_prefix).find_each do |row|
+          keys << row.key
+        end
         keys
       end
 
