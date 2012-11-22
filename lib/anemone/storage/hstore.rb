@@ -30,17 +30,19 @@ module Anemone
       end
 
       def delete(key)
-        page = self[key]
-        @table.find_by_key(key.to_s).try(:destroy)
-        page
+        page = @table.where(:key_prefix => @key_prefix, :key => key)
+        hash = page.try(:data)
+        page.try(:destroy)
+        if !!hash
+          load_value(hash)
+        end
       end
 
       def each
         @table.where(:key_prefix => @key_prefix).find_each do |row|
           hash = row.try(:data)
           if !!hash
-            page = load_value(hash)
-            yield row.key, page
+            yield row.key, load_value(hash)
           end
         end
       end
@@ -57,12 +59,7 @@ module Anemone
       end
 
       def has_key?(key)
-        key = @key_prefix + key.to_s
-        if self[key].nil?
-          return false
-        else
-          return true
-        end
+        !@table.where(:key_prefix => @key_prefix, :key => key).empty?
       end
 
       def size
@@ -82,14 +79,13 @@ module Anemone
         Page.from_hash(hash)
       end
 
-      def rget(rkey)
-        page = @table.where(:key_prefix => @key_prefix, :key => rkey)
+      def rget(key)
+        page = @table.where(:key_prefix => @key_prefix, :key => key)
         hash = page.try(:data)
         if !!hash
           load_value(hash)
         end
       end
-
     end
   end
 end
