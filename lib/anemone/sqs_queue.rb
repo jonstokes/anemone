@@ -52,6 +52,14 @@ class SqsQueue
     self.size
   end
 
+  def pop
+    self.deq
+  end
+
+  def push(p)
+    self.enq(p)
+  end
+
   def q_url
     return @q_url if @q_url
     queue.body['QueueUrl']
