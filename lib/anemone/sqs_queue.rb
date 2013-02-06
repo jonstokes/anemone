@@ -1,6 +1,8 @@
 require 'fog'
 require 'yaml'
 require 'base64'
+require 'socket'
+require 'digest/md5'
 
 class SqsQueue
 
@@ -9,7 +11,7 @@ class SqsQueue
   def initialize(opts)
     create_sqs_connection
     if opts[:name]
-      create_queue(opts[:name])
+      create_queue("scoperrific-#{instance_id}-#{opts[:name]}")
     elsif opts[:url]
       @q_url = opts[:url]
     else
@@ -68,4 +70,20 @@ class SqsQueue
       raise e
     end
   end
+
+  def instance_id
+    Digest::MD5.hexdigest(local_ip)
+  end
+
+  def local_ip
+    orig, Socket.do_not_reverse_lookup = Socket.do_not_reverse_lookup, true  # turn off reverse DNS resolution temporarily
+
+    UDPSocket.open do |s|
+      s.connect '64.233.187.99', 1
+      s.addr.last
+    end
+  ensure
+    Socket.do_not_reverse_lookup = orig
+  end
+
 end
