@@ -6,9 +6,13 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :sqs, :q_url
+  attr_reader :sqs, :queue, :aws_options
 
   def initialize(opts)
+    @aws_options = {
+      :aws_access_key_id => opts[:aws_access_key_id], 
+      :aws_secret_access_key => opts[:aws_secret_access_key]
+    }
     create_sqs_connection
     if opts[:name]
       create_queue("scoperrific-#{instance_id}-#{opts[:name]}")
@@ -26,8 +30,12 @@ class SqsQueue
   end
 
   def deq
-    message = sqs.recieve_message(q_url)
+    message = sqs.receive_message(q_url)
+    return nil if  message.body.nil? || message.body['Message'].first.nil?
+    handle = message.body['Message'].first['ReceiptHandle']
     ser_obj = message.body['Message'].first['Body']
+    return nil if ser_obj.nil? || ser_obj.empty?
+    sqs.delete_message(q_url, handle)
     return ser_obj if is_a_link?(ser_obj)
     Marshal.load(Base64.decode64(ser_obj))
   end
@@ -42,27 +50,26 @@ class SqsQueue
   end
 
   #private 
-  def aws_options
-    aws_config = YAML.load(File.read(File.join('config', 'aws.yml')))[Rails.env]
-    {
-      :aws_access_key_id => aws_config['access_key_id'], 
-      :aws_secret_access_key => aws_config['secret_access_key']
-    }
-  end
 
   def create_queue(name)
     begin
+      puts "Creating queue #{name}..."
       @queue = @sqs.create_queue(name)
-    rescue Exception => e
-      raise e
-    end
-    begin
-      @q_url = @queue.body['QueueUrl']
+      puts "Queue created!"
     rescue Exception => e
       raise e
     end
   end
 
+  def delete_queue
+    @sqs.delete_queue(q_url)
+  end
+
+  def q_url
+    return @q_url if @q_url
+    queue.body['QueueUrl']
+  end
+ 
   def create_sqs_connection
     begin
       @sqs = Fog::AWS::SQS.new(aws_options)

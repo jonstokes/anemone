@@ -45,6 +45,10 @@ module Anemone
       :redirect_limit => 5,
       # storage engine defaults to Hash in +process_options+ if none specified
       :storage => nil,
+      # Defaults to in-memory queue, but you can set it to 'SQS' to use Amazon SQS instead
+      :queue_type => nil,
+      # If you're using SQS, you need to set these: :aws_access_key_id and :aws_secret_access_key
+      :aws_credentials => {},
       # Hash of cookie name => value to send with HTTP requests
       :cookies => nil,
       # accept cookies from the server and send them back?
@@ -152,11 +156,8 @@ module Anemone
       @urls.delete_if { |url| !visit_link?(url) }
       return if @urls.empty?
 
-      link_queue = Queue.new
-      page_queue = Queue.new
-
       @opts[:threads].times do
-        @tentacles << Thread.new { Tentacle.new(link_queue, page_queue, @opts).run }
+        @tentacles << Thread.new { Tentacle.new(copy_link_queue, copy_page_queue, @opts).run }
       end
 
       @urls.each{ |url| link_queue.enq(url) }
@@ -194,6 +195,26 @@ module Anemone
     end
 
     private
+
+    def link_queue
+      return @link_queue if @link_queue
+      raise "AWS credentials required for use of SQS!" if queue_type && aws_credentials.empty?
+      @link_queue = queue_type.nil? ? Queue.new : SqsQueue.new(aws_credentials.merge(:name => "links"))
+    end
+
+    def page_queue
+      return @page_queue if @page_queue
+      raise "AWS credentials required for use of SQS!" if queue_type && aws_credentials.empty?
+      @page_queue = queue_type.nil? ? Queue.new : SqsQueue.new(aws_credentials.merge(:name => "pages"))
+    end
+
+    def copy_link_queue
+      queue_type.nil? ? link_queue : SqsQueue.new(aws_credentials.merge(:url => link_queue.q_url))
+    end
+
+    def copy_page_queue
+      queue_type.nil? ? page_queue : SqsQueue.new(aws_credentials.merge(:url => page_queue.q_url))
+    end
 
     def process_options
       @opts = DEFAULT_OPTS.merge @opts
