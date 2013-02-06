@@ -44,12 +44,25 @@ class SqsQueue
     self.enq(p)
   end
 
+  def size
+    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i)
+  end
+
+  def length
+    self.size
+  end
+
+  def q_url
+    return @q_url if @q_url
+    queue.body['QueueUrl']
+  end
+
+  #private 
+
   def is_a_link?(s)
     return false unless s.is_a? String
     (s[0..6] == "http://") || (s[0..7] == "https://")
   end
-
-  #private 
 
   def create_queue(name)
     begin
@@ -63,11 +76,6 @@ class SqsQueue
 
   def delete_queue
     @sqs.delete_queue(q_url)
-  end
-
-  def q_url
-    return @q_url if @q_url
-    queue.body['QueueUrl']
   end
  
   def create_sqs_connection
