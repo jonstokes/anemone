@@ -1,5 +1,6 @@
 require 'thread'
 require 'robotex'
+require 'sidekiq'
 require 'anemone/tentacle'
 require 'anemone/page'
 require 'anemone/exceptions'
