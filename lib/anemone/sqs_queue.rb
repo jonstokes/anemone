@@ -1,14 +1,15 @@
 require 'fog'
+require 'yaml'
+require 'base64'
 
 class SqsQueue
 
   attr_reader :sqs, :q_url
 
   def initialize(opts)
-    @sqs = Fog::AWS::SQS.new(aws_options)
+    create_sqs_connection
     if opts[:name]
-      @queue = @sqs.create_queue(opts[:name])
-      @q_url = @queue.body['QueueUrl']
+      create_queue(opts[:name])
     elsif opts[:url]
       @q_url = opts[:url]
     else
@@ -18,18 +19,24 @@ class SqsQueue
   end
   
   def enq(p)
-    payload = Base64.ecnode64(Marshall.dump(p))
+    payload = is_a_link?(p) ? p : Base64.encode64(Marshal.dump(p))
     sqs.send_message(q_url, payload)
   end
 
   def deq
     message = sqs.recieve_message(q_url)
     ser_obj = message.body['Message'].first['Body']
-    Basec64.decode64(Marshall.load(ser_obj))
+    return ser_obj if is_a_link?(ser_obj)
+    Marshal.load(Base64.decode64(ser_obj))
   end
 
   def <<(p)
     self.enq(p)
+  end
+
+  def is_a_link?(s)
+    return false unless s.is_a? String
+    (s[0..6] == "http://") || (s[0..7] == "https://")
   end
 
   #private 
@@ -41,4 +48,24 @@ class SqsQueue
     }
   end
 
+  def create_queue(name)
+    begin
+      @queue = @sqs.create_queue(name)
+    rescue Exception => e
+      raise e
+    end
+    begin
+      @q_url = @queue.body['QueueUrl']
+    rescue Exception => e
+      raise e
+    end
+  end
+
+  def create_sqs_connection
+    begin
+      @sqs = Fog::AWS::SQS.new(aws_options)
+    rescue Exception => e
+      raise e
+    end
+  end
 end
