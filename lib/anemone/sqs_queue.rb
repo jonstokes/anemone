@@ -6,7 +6,7 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :sqs, :sqs_queue, :queue
+  attr_reader :sqs, :sqs_queue
 
   def initialize(opts)
     check_opts(opts)
@@ -102,8 +102,7 @@ class SqsQueue
   def poll_sqs_tail(poll_interval)
     loop do
       m = get_message_from_queue
-      @out_buffer.push m unless m.nil?
-      sleep poll_interval || 1
+      m.nil? ? sleep(poll_interval || 1) : @out_buffer.push(m)
     end
   end
 
@@ -114,29 +113,28 @@ class SqsQueue
     raise "Parameter :name required!" unless opts[:name]
   end
 
-  def create_sqs_queue
-    if opts[:name]
-      create_queue("#{namespace}-#{opts[:name]}")
-    elsif opts[:url]
-      @q_url = opts[:url]
-    else
-      raise "Queue name or url required for SqsQueue!"
+  def create_sqs_queue(opts)
+    queue_name = "#{namespace}-#{opts[:name]}"
+    begin
+      @sqs_queue = @sqs.create_queue(queue_name)
+    rescue #Insert correct error here
+      if opts[:replace_existing_queue]
+        @sqs.delete_queue(queue_name)
+        retry
+      else
+        @q_url = retrieve_queue_url(queue_name)
+      end
     end
+    raise "Couldn't create queue #{queue_name}." if @q_url.nil?
   end
 
-  def create_queue(name)
-    begin
-      puts "Creating queue #{name}..."
-      @sqs_queue = @sqs.create_queue(name)
-      puts "Queue created!"
-    rescue Exception => e
-      raise e
-    end
+  def retrieve_queue_url(name)
+    # do stuff
   end
 
   def q_url
     return @q_url if @q_url
-    queue.body['QueueUrl']
+    sqs_queue.body['QueueUrl']
   end
 
   def send_message_to_queue(p)
