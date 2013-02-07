@@ -6,7 +6,7 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :sqs, :sqs_queue
+  attr_reader :queue_name, :sqs, :sqs_queue
 
   #Required options:
   #  :name
@@ -21,11 +21,7 @@ class SqsQueue
 
   def initialize(opts)
     check_opts(opts)
-
-    @namespace = opts[:namespace]
-    @localize_queue = opts[:localize_queue]
-    @name = opts[:name]
-
+    @queue_name = generate_queue_name(opts)
     initialize_sqs(opts)
 
     @waiting = []
@@ -184,18 +180,16 @@ class SqsQueue
     @sqs.delete_queue(q_url)
   end
  
-  def queue_name
-    return @queue_name if @queue_name
-    if @namespace && @localize_queue
-      @queue_name = "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
-    elsif @namespace
-      @queue_name = "#{@namespace}-#{@name}"
-    elsif @localize_queue
-      @queue_name = "#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+  def generate_queue_name(opts)
+    if opts[:namespace] && opts[:localize_queue]
+      "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+    elsif opts[:namespace]
+      "#{@namespace}-#{@name}"
+    elsif opts[:localize_queue]
+      "#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
     else
-      @queue_name = @name
+      opts[:name]
     end
-    @queue_name
   end
 
   def local_ip
