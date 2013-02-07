@@ -179,9 +179,7 @@ module Anemone
 
         # if we are done with the crawl, tell the threads to end
         if link_queue.empty? and page_queue.empty?
-          until link_queue.num_waiting == @tentacles.size
-            Thread.pass
-          end
+          sleep 5
           if page_queue.empty?
             @tentacles.size.times { link_queue << :END }
             break
