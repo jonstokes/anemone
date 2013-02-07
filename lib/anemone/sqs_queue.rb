@@ -21,7 +21,8 @@ class SqsQueue
     create_sqs_connection(opts)
     create_sqs_queue(opts)
 
-    @sqs_tracker = Thread.new { poll_sqs }
+    @sqs_head_tracker = Thread.new { poll_sqs_head }
+    @sqs_tail_tracker = Thread.new { poll_sqs_tail(opts[:poll_interval]) }
   end
 
   def push(p)
@@ -37,7 +38,7 @@ class SqsQueue
   end
 
   def pop(non_block=false)
-    @mutex.synchronize{
+    @mutex.synchronize {
       while true
         if @out_buffer.empty?
           raise ThreadError, "queue empty" if non_block
@@ -51,7 +52,10 @@ class SqsQueue
   end
 
   def length
-    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
+    @mutex.synchronize {
+      sqs_length = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
+      return sqs_length + @in_buffer.size + @out_buffer.size
+    }
   end
 
   def empty?
@@ -66,6 +70,12 @@ class SqsQueue
     delete_queue
   end
 
+  def destroy
+    delete_queue
+    @sqs_head_tracker.terminate
+    @sqs_tail_tracker.terminate
+  end
+
   alias enq push
   alias << push
 
@@ -75,6 +85,18 @@ class SqsQueue
   alias size length
 
   private
+
+  def poll_sqs_head
+    loop { send_message_to_queue(@in_buffer.pop) }
+  end
+
+  def poll_sqs_tail(poll_interval)
+    loop do
+      m = get_message_from_queue
+      @out_buffer.push m unless m.nil?
+      sleep poll_interval || 1
+    end
+  end
 
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
