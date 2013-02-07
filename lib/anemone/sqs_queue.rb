@@ -9,38 +9,43 @@ class SqsQueue
   attr_reader :sqs, :sqs_queue, :queue
 
   def initialize(opts)
+    check_opts(opts)
+
     @waiting = []
     @waiting.taint
     self.taint
     @mutex = Mutex.new
+    @in_buffer = SizedQueue.new(opts[:buffer_size])
+    @out_buffer = SizedQueue.new(opts[:buffer_size])
 
     create_sqs_connection(opts)
     create_sqs_queue(opts)
+
+    @sqs_tracker = Thread.new { poll_sqs }
   end
-  
+
+  def push(p)
+    @mutex.synchronize {
+      @in_buffer.push p
+      begin
+        t = @waiting.shift
+        t.wakeup if t
+      rescue ThreadError
+        retry
+      end
+    }
+  end
+
   def pop(non_block=false)
     @mutex.synchronize{
       while true
-        m = get_message_from_queue
-        if m.nil?
+        if @out_buffer.empty?
           raise ThreadError, "queue empty" if non_block
           @waiting.push Thread.current
           @mutex.sleep
         else
           return m
         end
-      end
-    }
-  end
-
-  def push(p)
-    @mutex.synchronize{
-      send_message_to_queue(p)
-      begin
-        t = @waiting.shift
-        t.wakeup if t
-      rescue ThreadError
-        retry
       end
     }
   end
@@ -70,6 +75,13 @@ class SqsQueue
   alias size length
 
   private
+
+  def check_opts(opts)
+    raise "Parameter :buffer_size required!" unless opts[:buffer_size]
+    raise "Minimun :buffer_size is 5." unless opts[:buffer_size] >= 5
+    raise "AWS credentials :aws_access_key_id and :aws_secret_access_key required!" unless opts[:aws_access_key_id] && opts[:aws_secret_access_key]
+    raise "Parameter :name required!" unless opts[:name]
+  end
 
   def create_sqs_queue
     if opts[:name]
