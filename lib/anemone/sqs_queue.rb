@@ -6,10 +6,72 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :sqs, :queue
+  attr_reader :sqs, :sqs_queue, :queue
 
   def initialize(opts)
+    @waiting = []
+    @waiting.taint
+    self.taint
+    @mutex = Mutex.new
+
     create_sqs_connection(opts)
+    create_sqs_queue(opts)
+  end
+  
+  def pop(non_block=false)
+    @mutex.synchronize{
+      while true
+        m = get_message_from_queue
+        if m.nil?
+          raise ThreadError, "queue empty" if non_block
+          @waiting.push Thread.current
+          @mutex.sleep
+        else
+          return m
+        end
+      end
+    }
+  end
+
+  def push(p)
+    @mutex.synchronize{
+      send_message_to_queue(p)
+      begin
+        t = @waiting.shift
+        t.wakeup if t
+      rescue ThreadError
+        retry
+      end
+    }
+  end
+
+  def length
+    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
+  end
+
+  def empty?
+    self.size == 0
+  end
+
+  def num_waiting
+    @waiting.size
+  end
+
+  def clear
+    delete_queue
+  end
+
+  alias enq push
+  alias << push
+
+  alias deq pop
+  alias shift pop
+
+  alias size length
+
+  private
+
+  def create_sqs_queue
     if opts[:name]
       create_queue("#{namespace}-#{opts[:name]}")
     elsif opts[:url]
@@ -17,15 +79,29 @@ class SqsQueue
     else
       raise "Queue name or url required for SqsQueue!"
     end
-    q_url
   end
-  
-  def enq(p)
+
+  def create_queue(name)
+    begin
+      puts "Creating queue #{name}..."
+      @sqs_queue = @sqs.create_queue(name)
+      puts "Queue created!"
+    rescue Exception => e
+      raise e
+    end
+  end
+
+  def q_url
+    return @q_url if @q_url
+    queue.body['QueueUrl']
+  end
+
+  def send_message_to_queue(p)
     payload = is_a_link?(p) ? p : Base64.encode64(Marshal.dump(p))
     sqs.send_message(q_url, payload)
   end
 
-  def deq
+  def get_message_from_queue
     message = sqs.receive_message(q_url)
     return nil if  message.body.nil? || message.body['Message'].first.nil?
     handle = message.body['Message'].first['ReceiptHandle']
@@ -36,50 +112,9 @@ class SqsQueue
     Marshal.load(Base64.decode64(ser_obj))
   end
 
-  def <<(p)
-    self.enq(p)
-  end
-
-  def size
-    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i)
-  end
-
-  def length
-    self.size
-  end
-
-  def pop
-    self.deq
-  end
-
-  def push(p)
-    self.enq(p)
-  end
-
-  def q_url
-    return @q_url if @q_url
-    queue.body['QueueUrl']
-  end
-
-  def empty?
-    self.size == 0
-  end
-
-  #private 
-
   def is_a_link?(s)
     return false unless s.is_a? String
     (s[0..6] == "http://") || (s[0..7] == "https://")
-  end
-
-  def create_queue(name)
-    begin
-      puts "Creating queue #{name}..."
-      @queue = @sqs.create_queue(name)
-      puts "Queue created!"
-    rescue Exception => e
-      raise e
-    end
   end
 
   def delete_queue
