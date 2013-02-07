@@ -11,7 +11,7 @@ class SqsQueue
   def initialize(opts)
     create_sqs_connection(opts)
     if opts[:name]
-      create_queue("#{instance_id}-#{opts[:name]}")
+      create_queue("#{namespace}-#{opts[:name]}")
     elsif opts[:url]
       @q_url = opts[:url]
     else
@@ -94,7 +94,7 @@ class SqsQueue
     end
   end
 
-  def instance_id
+  def namespace
     Digest::MD5.hexdigest(local_ip)
   end
 
