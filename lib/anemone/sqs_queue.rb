@@ -70,7 +70,7 @@ class SqsQueue
   end
 
   def empty?
-    self.size == 0
+    self.length == 0
   end
 
   def num_waiting
