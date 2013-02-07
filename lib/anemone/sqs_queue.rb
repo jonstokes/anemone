@@ -40,12 +40,13 @@ class SqsQueue
   def pop(non_block=false)
     @mutex.synchronize {
       while true
-        if @out_buffer.empty?
+        if empty? || buffers_empty?
           raise ThreadError, "queue empty" if non_block
           @waiting.push Thread.current
           @mutex.sleep
         else
-          return m
+          return @out_buffer.pop unless @out_buffer.empty?
+          return @in_buffer.pop
         end
       end
     }
@@ -67,7 +68,11 @@ class SqsQueue
   end
 
   def clear
-    delete_queue
+    begin
+      self.pop(true)
+    rescue ThreadError
+      retry unless self.empty?
+    end until self.empty?
   end
 
   def destroy
@@ -85,6 +90,10 @@ class SqsQueue
   alias size length
 
   private
+
+  def buffers_empty?
+    @out_buffer.empty? && @in_buffer.empty?
+  end
 
   def poll_sqs_head
     loop { send_message_to_queue(@in_buffer.pop) }
