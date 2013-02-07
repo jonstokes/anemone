@@ -6,16 +6,12 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :sqs, :queue, :aws_options
+  attr_reader :sqs, :queue
 
   def initialize(opts)
-    @aws_options = {
-      :aws_access_key_id => opts[:aws_access_key_id], 
-      :aws_secret_access_key => opts[:aws_secret_access_key]
-    }
-    create_sqs_connection
+    create_sqs_connection(opts)
     if opts[:name]
-      create_queue("scoperrific-#{instance_id}-#{opts[:name]}")
+      create_queue("#{instance_id}-#{opts[:name]}")
     elsif opts[:url]
       @q_url = opts[:url]
     else
@@ -86,7 +82,11 @@ class SqsQueue
     @sqs.delete_queue(q_url)
   end
  
-  def create_sqs_connection
+  def create_sqs_connection(opts)
+    aws_options = {
+      :aws_access_key_id => opts[:aws_access_key_id], 
+      :aws_secret_access_key => opts[:aws_secret_access_key]
+    }
     begin
       @sqs = Fog::AWS::SQS.new(aws_options)
     rescue Exception => e
