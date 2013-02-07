@@ -61,6 +61,10 @@ class SqsQueue
     queue.body['QueueUrl']
   end
 
+  def empty?
+    self.size == 0
+  end
+
   #private 
 
   def is_a_link?(s)
