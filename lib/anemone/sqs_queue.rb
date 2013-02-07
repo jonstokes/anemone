@@ -26,15 +26,14 @@ class SqsQueue
     @localize_queue = opts[:localize_queue]
     @name = opts[:name]
 
+    initialize_sqs(opts)
+
     @waiting = []
     @waiting.taint
     self.taint
     @mutex = Mutex.new
     @in_buffer = SizedQueue.new(opts[:buffer_size])
     @out_buffer = SizedQueue.new(opts[:buffer_size])
-
-    create_sqs_connection(opts)
-    create_sqs_queue(opts)
 
     @sqs_head_tracker = Thread.new { poll_sqs_head }
     @sqs_tail_tracker = Thread.new { poll_sqs_tail(opts[:poll_interval]) }
@@ -106,26 +105,28 @@ class SqsQueue
 
   private
 
-  def buffers_empty?
-    @out_buffer.empty? && @in_buffer.empty?
-  end
-
-  def poll_sqs_head
-    loop { send_message_to_queue(@in_buffer.pop) }
-  end
-
-  def poll_sqs_tail(poll_interval)
-    loop do
-      m = get_message_from_queue
-      m.nil? ? sleep(poll_interval || 1) : @out_buffer.push(m)
-    end
-  end
-
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
     raise "Minimun :buffer_size is 5." unless opts[:buffer_size] >= 5
     raise "AWS credentials :aws_access_key_id and :aws_secret_access_key required!" unless opts[:aws_access_key_id] && opts[:aws_secret_access_key]
     raise "Parameter :name required!" unless opts[:name]
+  end
+
+  def initialize_sqs(opts)
+    create_sqs_connection(opts)
+    create_sqs_queue(opts)
+  end
+
+  def create_sqs_connection(opts)
+    aws_options = {
+      :aws_access_key_id => opts[:aws_access_key_id], 
+      :aws_secret_access_key => opts[:aws_secret_access_key]
+    }
+    begin
+      @sqs = Fog::AWS::SQS.new(aws_options)
+    rescue Exception => e
+      raise e
+    end
   end
 
   def create_sqs_queue(opts)
@@ -139,19 +140,6 @@ class SqsQueue
       end
     end
     raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if @q_url.nil?
-  end
-
-  def retrieve_queue_url
-    match = @sqs.list_queues(:QueueNamePrefix => queue_name).detect do |q|
-      #match conditional
-    end
-    return nil if match.nil? || match.body.nil?
-    return match.body['QueueUrl']
-  end
-
-  def q_url
-    return @q_url if @q_url
-    sqs_queue.body['QueueUrl']
   end
 
   def send_message_to_queue(p)
@@ -170,27 +158,32 @@ class SqsQueue
     Marshal.load(Base64.decode64(ser_obj))
   end
 
+  def retrieve_queue_url
+    match = @sqs.list_queues(:QueueNamePrefix => queue_name).detect do |q|
+      #match conditional
+    end
+    return nil if match.nil? || match.body.nil?
+    return match.body['QueueUrl']
+  end
+
+  def q_url
+    return @q_url if @q_url
+    sqs_queue.body['QueueUrl']
+  end
+
   def is_a_link?(s)
     return false unless s.is_a? String
     (s[0..6] == "http://") || (s[0..7] == "https://")
+  end
+
+  def buffers_empty?
+    @out_buffer.empty? && @in_buffer.empty?
   end
 
   def delete_queue
     @sqs.delete_queue(q_url)
   end
  
-  def create_sqs_connection(opts)
-    aws_options = {
-      :aws_access_key_id => opts[:aws_access_key_id], 
-      :aws_secret_access_key => opts[:aws_secret_access_key]
-    }
-    begin
-      @sqs = Fog::AWS::SQS.new(aws_options)
-    rescue Exception => e
-      raise e
-    end
-  end
-
   def queue_name
     return @queue_name if @queue_name
     if @namespace && @localize_queue
@@ -214,6 +207,17 @@ class SqsQueue
     end
   ensure
     Socket.do_not_reverse_lookup = orig
+  end
+
+  def poll_sqs_head
+    loop { send_message_to_queue(@in_buffer.pop) }
+  end
+
+  def poll_sqs_tail(poll_interval)
+    loop do
+      m = get_message_from_queue
+      m.nil? ? sleep(poll_interval || 1) : @out_buffer.push(m)
+    end
   end
 
 end
