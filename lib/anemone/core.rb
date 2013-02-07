@@ -196,14 +196,22 @@ module Anemone
 
     def link_queue
       return @link_queue if @link_queue
-      raise "AWS credentials required for use of SQS!" if queue_type && aws_credentials.empty?
-      @link_queue = queue_type.nil? ? Queue.new : SqsQueue.new(aws_credentials.merge(:name => "links"))
+      if queue_type
+        raise "AWS credentials required for use of SQS!" if aws_credentials.empty?
+        @link_queue = SqsQueue.new(aws_credentials.merge(:name => "links"))
+      else
+        @link_queue = Queue.new
+      end
     end
 
     def page_queue
       return @page_queue if @page_queue
-      raise "AWS credentials required for use of SQS!" if queue_type && aws_credentials.empty?
-      @page_queue = queue_type.nil? ? Queue.new : SqsQueue.new(aws_credentials.merge(:name => "pages"))
+      if queue_type
+        raise "AWS credentials required for use of SQS!" if aws_credentials.empty?
+        @page_queue = SqsQueue.new(aws_credentials.merge(:name => "pages"))
+      else
+        @page_queue = Queue.new
+      end
     end
 
     def copy_link_queue
