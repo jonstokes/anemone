@@ -8,8 +8,23 @@ class SqsQueue
 
   attr_reader :sqs, :sqs_queue
 
+  #Required options:
+  #  :name
+  #  :buffer_size (minimum of 5)
+  #  :aws_access_key_id
+  #  :aws_secret_access_key
+  #
+  #Optional options (with defaults):
+  #  :replace_existing_queue => false
+  #  :namespace => ""
+  #  :localize_queue => true
+
   def initialize(opts)
     check_opts(opts)
+
+    @namespace = opts[:namespace]
+    @localize_queue = opts[:localize_queue]
+    @name = opts[:name]
 
     @waiting = []
     @waiting.taint
@@ -114,22 +129,24 @@ class SqsQueue
   end
 
   def create_sqs_queue(opts)
-    queue_name = "#{namespace}-#{opts[:name]}"
     begin
       @sqs_queue = @sqs.create_queue(queue_name)
     rescue #Insert correct error here
-      if opts[:replace_existing_queue]
-        @sqs.delete_queue(queue_name)
+      @q_url = retrieve_queue_url
+      if opts[:replace_existing_queue] && @q_url
+        delete_queue
         retry
-      else
-        @q_url = retrieve_queue_url(queue_name)
       end
     end
-    raise "Couldn't create queue #{queue_name}." if @q_url.nil?
+    raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if @q_url.nil?
   end
 
-  def retrieve_queue_url(name)
-    # do stuff
+  def retrieve_queue_url
+    match = @sqs.list_queues(:QueueNamePrefix => queue_name).detect do |q|
+      #match conditional
+    end
+    return nil if match.nil? || match.body.nil?
+    return match.body['QueueUrl']
   end
 
   def q_url
@@ -174,8 +191,18 @@ class SqsQueue
     end
   end
 
-  def namespace
-    Digest::MD5.hexdigest(local_ip)
+  def queue_name
+    return @queue_name if @queue_name
+    if @namespace && @localize_queue
+      @queue_name = "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+    elsif @namespace
+      @queue_name = "#{@namespace}-#{@name}"
+    elsif @localize_queue
+      @queue_name = "#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+    else
+      @queue_name = @name
+    end
+    @queue_name
   end
 
   def local_ip
