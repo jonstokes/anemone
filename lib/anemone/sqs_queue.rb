@@ -21,6 +21,7 @@ class SqsQueue
 
   def initialize(opts)
     check_opts(opts)
+    @localize_queue = opts[:localize_queue]
     @queue_name = generate_queue_name(opts)
     initialize_sqs(opts)
 
@@ -110,6 +111,10 @@ class SqsQueue
 
   def name
     queue_name
+  end
+
+  def localized?
+    @localize_queue
   end
 
   private
