@@ -160,7 +160,7 @@ class SqsQueue
   end
 
   def retrieve_queue_url
-    response = @sqs.list_queues(:QueueNamePrefix => queue_name)
+    response = @sqs.list_queues("QueueNamePrefix" => queue_name)
     list = response.body ? response.body["QueueUrls"] : []
     list.detect { |url| url.index(queue_name) && (url[(url.index(queue_name)-1)..-1] == "/#{queue_name}") }
   end
