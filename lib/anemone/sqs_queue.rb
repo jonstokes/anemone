@@ -104,7 +104,15 @@ class SqsQueue
 
   alias size length
 
-  #private
+  def url
+    q_url
+  end
+
+  def name
+    queue_name
+  end
+
+  private
 
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
@@ -187,11 +195,11 @@ class SqsQueue
  
   def generate_queue_name(opts)
     if opts[:namespace] && opts[:localize_queue]
-      "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+      "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{opts[:name]}"
     elsif opts[:namespace]
-      "#{@namespace}-#{@name}"
+      "#{@namespace}-#{opts[:name]}"
     elsif opts[:localize_queue]
-      "#{Digest::MD5.hexdigest(local_ip)}-#{@name}"
+      "#{Digest::MD5.hexdigest(local_ip)}-#{opts[:name]}"
     else
       opts[:name]
     end
