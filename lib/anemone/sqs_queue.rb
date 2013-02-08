@@ -50,21 +50,45 @@ class SqsQueue
   def pop(non_block=false)
     @mutex.synchronize {
       while true
-        if empty? || buffers_empty?
+        sqs_size = sqs_length # This cuts back on the number of SQS requests
+        if (sqs_size == 0) && buffers_empty?
           raise ThreadError, "queue empty" if non_block
           @waiting.push Thread.current
           @mutex.sleep
+        elsif @out_buffer.empty?
+          if fill_out_buffer_from_sqs_queue(sqs_size) || fill_out_buffer_from_in_buffer
+            return @out_buffer.pop(non_block)
+          else
+            raise ThreadError, "queue empty" if non_block
+            @waiting.push Thread.current
+            @mutex.sleep
+          end
         else
-          return @out_buffer.pop unless @out_buffer.empty?
-          return @in_buffer.pop
+          return @out_buffer.pop(non_block)
         end
       end
     }
   end
 
+  def fill_out_buffer_from_sqs_queue(sqs_size)
+    count = 0
+    while (@out_buffer.size < @out_buffer.max) && count < sqs_size
+      m = get_message_from_queue
+      @out_buffer.push m unless m.nil?
+      count += 1
+    end
+    !@out_buffer.empty?
+  end
+
+  def fill_out_buffer_from_in_buffer
+    while (@out_buffer.size < @out_buffer.max) && !@in_buffer.empty?
+      @out_buffer.push @in_buffer.pop
+    end
+    !@out_buffer.empty?
+  end
+
   def length
     @mutex.synchronize {
-      sqs_length = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
       return sqs_length + @in_buffer.size + @out_buffer.size
     }
   end
@@ -100,6 +124,10 @@ class SqsQueue
   alias size length
 
   private
+
+  def sqs_length
+    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
+  end
 
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
