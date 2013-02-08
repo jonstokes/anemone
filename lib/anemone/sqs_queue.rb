@@ -166,12 +166,6 @@ class SqsQueue
     Marshal.load(Base64.decode64(ser_obj))
   end
 
-  def retrieve_queue_url
-    response = @sqs.list_queues("QueueNamePrefix" => queue_name)
-    list = response.body ? response.body["QueueUrls"] : []
-    list.detect { |url| url.index(queue_name) && (url[(url.index(queue_name)-1)..-1] == "/#{queue_name}") }
-  end
-
   def q_url
     return @q_url if @q_url
     @q_url = @sqs_queue.body['QueueUrl']
