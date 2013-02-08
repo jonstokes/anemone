@@ -32,7 +32,6 @@ class SqsQueue
     @out_buffer = SizedQueue.new(opts[:buffer_size])
 
     @sqs_head_tracker = Thread.new { poll_sqs_head }
-    @sqs_tail_tracker = Thread.new { poll_sqs_tail(opts[:poll_interval]) }
   end
 
   def push(p)
@@ -107,27 +106,6 @@ class SqsQueue
   alias size length
 
   private
-
-  def fill_out_buffer_from_sqs_queue(sqs_size)
-    count = 0
-    while (@out_buffer.size < @out_buffer.max) && (count < sqs_size)
-      m = get_message_from_queue
-      @out_buffer.push m unless m.nil?
-      count += 1
-    end
-    !@out_buffer.empty?
-  end
-
-  def fill_out_buffer_from_in_buffer
-    while (@out_buffer.size < @out_buffer.max) && !@in_buffer.empty?
-      @out_buffer.push @in_buffer.pop
-    end
-    !@out_buffer.empty?
-  end
-
-  def sqs_length
-    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
-  end
 
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
@@ -234,11 +212,25 @@ class SqsQueue
     loop { send_message_to_queue(@in_buffer.pop) }
   end
 
-  def poll_sqs_tail(poll_interval)
-    loop do
+  def fill_out_buffer_from_sqs_queue(sqs_size)
+    count = 0
+    while (@out_buffer.size < @out_buffer.max) && (count < sqs_size)
       m = get_message_from_queue
-      m.nil? ? sleep(poll_interval || 1) : @out_buffer.push(m)
+      @out_buffer.push m unless m.nil?
+      count += 1
     end
+    !@out_buffer.empty?
+  end
+
+  def fill_out_buffer_from_in_buffer
+    while (@out_buffer.size < @out_buffer.max) && !@in_buffer.empty?
+      @out_buffer.push @in_buffer.pop
+    end
+    !@out_buffer.empty?
+  end
+
+  def sqs_length
+    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
   end
 
 end
