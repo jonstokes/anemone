@@ -132,17 +132,15 @@ class SqsQueue
   end
 
   def create_sqs_queue(opts)
-    begin
-      @sqs_queue = @sqs.create_queue(queue_name)
-    rescue #Insert correct error here
-      puts "Retrieving queue url..."
-      @q_url = retrieve_queue_url
-      puts "Got queue url: #{q_url}"
-      if opts[:replace_existing_queue] && q_url
-        delete_queue
-        retry
-      end
+    puts "Looking for existing queue url..."
+    @q_url = retrieve_queue_url
+    puts "Found queue url: #{@q_url}" if @q_url
+    if opts[:replace_existing_queue] && @q_url
+      delete_queue
+      puts "Waiting 60s to create new queue..."
+      sleep 62 # You must wait 60s after deleting a q to create one with the same name
     end
+    @sqs_queue = @sqs.create_queue(queue_name)
   end
 
   def check_for_queue_creation_success
