@@ -92,8 +92,8 @@ class SqsQueue
   end
 
   def destroy
-    delete_queue
     @sqs_head_tracker.terminate
+    delete_queue
   end
 
   alias enq push
@@ -116,6 +116,7 @@ class SqsQueue
   def initialize_sqs(opts)
     create_sqs_connection(opts)
     create_sqs_queue(opts)
+    check_for_queue_creation_success
   end
 
   def create_sqs_connection(opts)
@@ -134,13 +135,23 @@ class SqsQueue
     begin
       @sqs_queue = @sqs.create_queue(queue_name)
     rescue #Insert correct error here
+      puts "Retrieving queue url..."
       @q_url = retrieve_queue_url
-      if opts[:replace_existing_queue] && @q_url
+      puts "Got queue url: #{q_url}"
+      if opts[:replace_existing_queue] && q_url
         delete_queue
         retry
       end
     end
-    #raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if @q_url.nil?
+  end
+
+  def check_for_queue_creation_success
+    retries = 0
+    while q_url.nil? && (retries < 5)
+      retries += 1
+      sleep 1
+    end
+    raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if q_url.nil?
   end
 
   def send_message_to_queue(p)
