@@ -94,7 +94,6 @@ class SqsQueue
   def destroy
     delete_queue
     @sqs_head_tracker.terminate
-    @sqs_tail_tracker.terminate
   end
 
   alias enq push
