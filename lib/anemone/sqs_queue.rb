@@ -70,23 +70,6 @@ class SqsQueue
     }
   end
 
-  def fill_out_buffer_from_sqs_queue(sqs_size)
-    count = 0
-    while (@out_buffer.size < @out_buffer.max) && count < sqs_size
-      m = get_message_from_queue
-      @out_buffer.push m unless m.nil?
-      count += 1
-    end
-    !@out_buffer.empty?
-  end
-
-  def fill_out_buffer_from_in_buffer
-    while (@out_buffer.size < @out_buffer.max) && !@in_buffer.empty?
-      @out_buffer.push @in_buffer.pop
-    end
-    !@out_buffer.empty?
-  end
-
   def length
     @mutex.synchronize {
       return sqs_length + @in_buffer.size + @out_buffer.size
@@ -124,6 +107,23 @@ class SqsQueue
   alias size length
 
   private
+
+  def fill_out_buffer_from_sqs_queue(sqs_size)
+    count = 0
+    while (@out_buffer.size < @out_buffer.max) && (count < sqs_size)
+      m = get_message_from_queue
+      @out_buffer.push m unless m.nil?
+      count += 1
+    end
+    !@out_buffer.empty?
+  end
+
+  def fill_out_buffer_from_in_buffer
+    while (@out_buffer.size < @out_buffer.max) && !@in_buffer.empty?
+      @out_buffer.push @in_buffer.pop
+    end
+    !@out_buffer.empty?
+  end
 
   def sqs_length
     sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
@@ -190,7 +190,8 @@ class SqsQueue
 
   def q_url
     return @q_url if @q_url
-    sqs_queue.body['QueueUrl']
+    @q_url = sqs_queue.body['QueueUrl']
+    @q_url
   end
 
   def is_a_link?(s)
