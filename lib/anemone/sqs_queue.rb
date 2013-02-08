@@ -229,7 +229,15 @@ class SqsQueue
   end
 
   def sqs_length
-    sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").try(:to_i) || 0
+    body = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").body
+    retval = 0
+    if body
+      attrs = body["Attributes"]
+      if attrs
+        retval = attrs["ApproximateNumberOfMessages"]
+      end
+    end
+    retval
   end
 
 end
