@@ -6,7 +6,7 @@ require 'digest/md5'
 
 class SqsQueue
 
-  attr_reader :queue_name, :sqs, :sqs_queue
+  attr_reader :queue_name, :sqs, :sqs_queue, :out_buffer, :in_buffer
 
   #Required options:
   #  :name
@@ -140,7 +140,7 @@ class SqsQueue
         retry
       end
     end
-    raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if @q_url.nil?
+    #raise "Couldn't create queue #{queue_name}, or delete existing queue by this name." if @q_url.nil?
   end
 
   def send_message_to_queue(p)
@@ -198,13 +198,15 @@ class SqsQueue
 
   def sqs_length
     body = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").body
-    retval = 0
-    if body
-      attrs = body["Attributes"]
-      if attrs
-        retval = attrs["ApproximateNumberOfMessages"]
+    begin
+      retval = 0
+      if body
+        attrs = body["Attributes"]
+        if attrs
+          retval = attrs["ApproximateNumberOfMessages"]
+        end
       end
-    end
+    end until !retval.nil?
     retval
   end
 
