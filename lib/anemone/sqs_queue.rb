@@ -104,7 +104,7 @@ class SqsQueue
 
   alias size length
 
-  private
+  #private
 
   def check_opts(opts)
     raise "Parameter :buffer_size required!" unless opts[:buffer_size]
@@ -167,7 +167,7 @@ class SqsQueue
 
   def q_url
     return @q_url if @q_url
-    @q_url = sqs_queue.body['QueueUrl']
+    @q_url = @sqs_queue.body['QueueUrl']
     @q_url
   end
 
@@ -194,6 +194,18 @@ class SqsQueue
     else
       opts[:name]
     end
+  end
+
+  def sqs_length
+    body = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").body
+    retval = 0
+    if body
+      attrs = body["Attributes"]
+      if attrs
+        retval = attrs["ApproximateNumberOfMessages"]
+      end
+    end
+    retval
   end
 
   def local_ip
@@ -227,17 +239,4 @@ class SqsQueue
     end
     !@out_buffer.empty?
   end
-
-  def sqs_length
-    body = sqs.get_queue_attributes(q_url, "ApproximateNumberOfMessages").body
-    retval = 0
-    if body
-      attrs = body["Attributes"]
-      if attrs
-        retval = attrs["ApproximateNumberOfMessages"]
-      end
-    end
-    retval
-  end
-
 end
