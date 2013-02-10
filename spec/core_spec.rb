@@ -298,7 +298,7 @@ module Anemone
       end
     end
 
-    describe SuperQueue do
+    describe "SuperQueue" do
       it_should_behave_like "crawl"
 
       before(:all) do
