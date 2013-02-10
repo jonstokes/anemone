@@ -158,14 +158,22 @@ module Anemone
       return if @urls.empty?
 
       if @opts[:use_super_queue]
+        puts "Initializing SuperQueue..."
         q_opts = {
           :aws_access_key_id     => @opts[:aws_access_key_id],
           :aws_secret_access_key => @opts[:aws_secret_access_key],
           :buffer_size           => 200,
           :visibility_timeout    => 60
         }
+        puts "Mocking..."
+	SuperQueue.mock! if @opts[:super_mock]
+        puts "Mocked, and creating link_queue"
         link_queue = SuperQueue.new(q_opts.merge(:name => "link"))
-        page_queue = SuperQueue.new(q_opts.merge(:name => "page"))
+        puts "Link_queue created!"
+        puts "Tesing link_queue"
+        link_queue.enq(URI("http://www.example.com/0"))
+	puts "link queue passed!"
+	page_queue = SuperQueue.new(q_opts.merge(:name => "page"))
       else
         link_queue = Queue.new
         page_queue = Queue.new
@@ -175,10 +183,18 @@ module Anemone
         @tentacles << Thread.new { Tentacle.new(link_queue, page_queue, @opts).run }
       end
 
-      @urls.each{ |url| link_queue.enq(url) }
+      puts "Adding #{@urls.count} urls to link queue."
+      @urls.each do |url|
+        puts "Adding #{url} to link_queue" if @opts[:use_super_queue] 
+        link_queue.enq(url)
+        puts "Url #{url} added!" if @opts[:use_super_queue]
+      end
+      puts "Urls added!"
 
       loop do
+        puts "Page queue size is #{page_queue.length}. Popping..."
         page = page_queue.deq
+        puts "Page queue popped!"
         @pages.touch_key page.url
         puts "#{page.url} Queue: #{link_queue.size}" if @opts[:verbose]
         do_page_blocks page

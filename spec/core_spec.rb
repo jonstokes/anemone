@@ -16,7 +16,7 @@ module Anemone
         pages << FakePage.new('1', :links => ['3'])
         pages << FakePage.new('2')
         pages << FakePage.new('3')
-
+        puts "Starting actual crawl..."
         Anemone.crawl(pages[0].url, @opts).should have(4).pages
       end
 
@@ -302,11 +302,12 @@ module Anemone
       it_should_behave_like "crawl"
 
       before(:all) do
-        SuperQueue.mock!
+        #SuperQueue.mock!
         @opts = {
           :use_super_queue => true,
           :aws_access_key_id => "abc123",
-          :aws_secret_access_key => "123abc"
+          :aws_secret_access_key => "123abc",
+	  :super_mock => true
         }
       end
     end
