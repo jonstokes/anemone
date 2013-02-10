@@ -206,8 +206,10 @@ module Anemone
 
       @tentacles.each { |thread| thread.join }
       do_after_crawl_blocks
-      link_queue.shutdown
-      page_queue.shutdown
+      if @opts[:use_super_queue]
+        link_queue.shutdown
+        page_queue.shutdown
+      end
       self
     end
 
