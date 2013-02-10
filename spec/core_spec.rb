@@ -298,6 +298,20 @@ module Anemone
       end
     end
 
+    describe SuperQueue do
+      it_should_behave_like "crawl"
+
+      before(:all) do
+        SuperQueue.mock!
+        @opts = {
+          :use_super_queue => true,
+          :aws_access_key_id => "abc123",
+          :aws_secret_access_key => "123abc"
+        }
+      end
+    end
+
+
     describe "options" do
       it "should accept options for the crawl" do
         core = Anemone.crawl(SPEC_DOMAIN, :verbose => false,
