@@ -55,7 +55,13 @@ module Anemone
       # proxy server port number
       :proxy_port => false,
       # HTTP read timeout in seconds
-      :read_timeout => nil
+      :read_timeout => nil,
+      # User SuperQueue for page and link options?
+      :use_super_queue => false,
+      # AWS access key id
+      :aws_access_key_id => nil,
+      # AWS secret key
+      :aws_secret_access_key => nil
     }
 
     # Create setter methods for all options to be called from the crawl block
@@ -151,8 +157,19 @@ module Anemone
       @urls.delete_if { |url| !visit_link?(url) }
       return if @urls.empty?
 
-      link_queue = Queue.new
-      page_queue = Queue.new
+      if @opts[:use_super_queue]
+        q_opts = {
+          :aws_access_key_id     => @opts[:aws_access_key_id],
+          :aws_secret_access_key => @opts[:aws_secret_access_key],
+          :buffer_size           => 200,
+          :visibility_timeout    => 60
+        }
+        link_queue = SuperQueue.new(q_opts.merge(:name => "link"))
+        page_queue = SuperQueue.new(q_opts.merge(:name => "page"))
+      else
+        link_queue = Queue.new
+        page_queue = Queue.new
+      end
 
       @opts[:threads].times do
         @tentacles << Thread.new { Tentacle.new(link_queue, page_queue, @opts).run }
@@ -189,6 +206,8 @@ module Anemone
 
       @tentacles.each { |thread| thread.join }
       do_after_crawl_blocks
+      link_queue.shutdown
+      page_queue.shutdown
       self
     end
 
