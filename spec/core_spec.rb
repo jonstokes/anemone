@@ -302,11 +302,11 @@ module Anemone
       it_should_behave_like "crawl"
 
       before(:all) do
-        SuperQueue.mock!
         @opts = {
           :use_super_queue => true,
           :aws_access_key_id => "abc123",
-          :aws_secret_access_key => "123abc"
+          :aws_secret_access_key => "123abc",
+          :super_queue_mock => true
         }
       end
     end

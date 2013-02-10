@@ -61,7 +61,8 @@ module Anemone
       # AWS access key id
       :aws_access_key_id => nil,
       # AWS secret key
-      :aws_secret_access_key => nil
+      :aws_secret_access_key => nil,
+      :super_queue_mock => false
     }
 
     # Create setter methods for all options to be called from the crawl block
@@ -164,6 +165,7 @@ module Anemone
           :buffer_size           => 200,
           :visibility_timeout    => 60
         }
+        SuperQueue.mock! if @opts[:super_queue_mock]
         link_queue = SuperQueue.new(q_opts.merge(:name => "link"))
         page_queue = SuperQueue.new(q_opts.merge(:name => "page"))
       else
