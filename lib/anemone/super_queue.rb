@@ -166,7 +166,8 @@ class SuperQueue
       check_for_queue_creation_success
     rescue RuntimeError => e
       retries += 1
-      (retries >= 10) ? retry : raise(e)
+      sleep 1
+      (retries >= 20) ? retry : raise(e)
     end
   end
 
@@ -195,7 +196,8 @@ class SuperQueue
     begin
       @request_count += 1
       @sqs.send_message(q_url, payload)
-    rescue Excon::Errors::BadRequest => e
+    rescue Exception => e
+      sleep 0.5
       retries += 1
       (retries >= 10) ? retry : raise(e)
     end
