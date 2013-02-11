@@ -9,10 +9,8 @@ class SuperQueue
   def initialize(opts)
     AWS.eager_autoload! # for thread safety
     check_opts(opts)
-    opts[:localize_queue] = true unless opts.has_key? :localized_queue
     @should_poll_sqs = opts[:should_poll_sqs]
     @buffer_size = opts[:buffer_size] || 100
-    @localize_queue = opts[:localize_queue]
     @queue_name = generate_queue_name(opts)
     @request_count = 0
     initialize_sqs(opts)
@@ -116,10 +114,6 @@ class SuperQueue
 
   def name
     queue_name
-  end
-
-  def localized?
-    !!@localize_queue
   end
 
   private
@@ -304,15 +298,7 @@ class SuperQueue
 
   def generate_queue_name(opts)
     q_name = opts[:name] || random_name
-    if opts[:namespace] && opts[:localize_queue]
-      "#{@namespace}-#{Digest::MD5.hexdigest(local_ip)}-#{q_name}"
-    elsif opts[:namespace]
-      "#{@namespace}-#{q_name}"
-    elsif opts[:localize_queue]
-      "#{Digest::MD5.hexdigest(local_ip)}-#{q_name}"
-    else
-      q_name
-    end
+    return opts[:namespace] ? "#{@namespace}-#{q_name}" : q_name
   end
 
   #
@@ -331,16 +317,6 @@ class SuperQueue
 
   def queue_name
     @queue_name
-  end
-
-  def local_ip
-    orig, Socket.do_not_reverse_lookup = Socket.do_not_reverse_lookup, true  # turn off reverse DNS resolution temporarily
-    UDPSocket.open do |s|
-      s.connect '64.233.187 .99', 1
-      s.addr.last
-    end
-  ensure
-    Socket.do_not_reverse_lookup = orig
   end
 
   #
