@@ -1,6 +1,7 @@
 $:.unshift(File.dirname(__FILE__))
 require 'spec_helper'
 %w[pstore tokyo_cabinet sqlite3].each { |file| require "anemone/storage/#{file}.rb" }
+require 'anemone/super_queue'
 
 module Anemone
   describe Core do
