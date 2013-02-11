@@ -294,7 +294,7 @@ class SuperQueue
   # Misc helper methods
   #
   def encode(p)
-    text = Base64.encode64(Marshal.dump(p))
+    text = Base64.urlsafe_encode64(Marshal.dump(p))
     retval = nil
     retries = 0
     begin
@@ -311,7 +311,7 @@ class SuperQueue
       text = @decompressor.inflate(ser_obj)
       retries += 1
     end until !(text.nil? || text.empty?) || (retries > 5)
-    Marshal.load(Base64.decode64(text))
+    Marshal.load(Base64.urlsafe_decode64(text))
   end
 
   def is_a_link?(s)
