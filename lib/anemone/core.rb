@@ -1,5 +1,6 @@
 require 'thread'
 require 'robotex'
+require 'super_queue'
 require 'anemone/tentacle'
 require 'anemone/page'
 require 'anemone/exceptions'
