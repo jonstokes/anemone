@@ -163,7 +163,6 @@ module Anemone
           :aws_access_key_id     => @opts[:aws_access_key_id],
           :aws_secret_access_key => @opts[:aws_secret_access_key],
           :buffer_size           => 200,
-          :visibility_timeout    => 60
         }
         link_queue = SuperQueue.new(q_opts.merge(:name => "link"))
         page_queue = SuperQueue.new(q_opts.merge(:name => "page"))
